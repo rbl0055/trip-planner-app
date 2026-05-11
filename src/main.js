@@ -149,12 +149,7 @@ function statusBanner() {
     `;
   }
 
-  return `
-    <div class="status-bar">
-      <strong>${escapeHtml(onlineState.saving ? "Saving online..." : onlineState.message)}</strong>
-      <span>Trip ID: <code>${escapeHtml(tripId)}</code></span>
-    </div>
-  `;
+  return "";
 }
 
 function renderBudget() {
