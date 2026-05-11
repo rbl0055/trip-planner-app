@@ -11,7 +11,6 @@ const tripId = ensureTripId();
 let trip = normalizeTrip(loadTrip(tripId), tripId);
 let page = location.hash.replace("#", "") || "home";
 let editing = null;
-let showWelcome = localStorage.getItem(welcomeStorageKey()) !== "opened";
 let config = { supabaseUrl: "", supabaseAnonKey: "" };
 let onlineState = {
   loading: true,
@@ -112,7 +111,6 @@ function shell(content) {
         <p>${escapeHtml(trip.meta.travelers)}</p>
       </div>
       <div class="header-actions">
-        <button class="ghost-button" data-action="view-welcome" type="button">Welcome</button>
         <form class="budget-form" data-action="save-meta">
           <label>
             Trip budget
@@ -133,6 +131,13 @@ function renderWelcome() {
   app.innerHTML = `
     <main class="welcome-page">
       <img class="welcome-hero-image" src="/welcome-hero.png" alt="Our Indonesia Trip welcome artwork" />
+      <nav class="welcome-nav" aria-label="Trip sections">
+        <a class="active" href="#home">♥</a>
+        <a href="#home">Home</a>
+        <a href="#itinerary">Itinerary</a>
+        <a href="#budget">Budget</a>
+        <a href="#places">Places</a>
+      </nav>
       <div class="welcome-overlay">
         <button class="welcome-button" data-action="open-trip" type="button">Open Planner</button>
       </div>
@@ -450,13 +455,8 @@ document.addEventListener("click", (event) => {
   const { action, id } = target.dataset;
 
   if (action === "open-trip") {
-    localStorage.setItem(welcomeStorageKey(), "opened");
-    showWelcome = false;
-    return render();
-  }
-
-  if (action === "view-welcome") {
-    showWelcome = true;
+    page = "budget";
+    history.replaceState(null, "", `${location.pathname}#budget`);
     return render();
   }
 
@@ -545,8 +545,7 @@ window.addEventListener("hashchange", () => {
 });
 
 function render() {
-  if (showWelcome) return renderWelcome();
-  if (page === "home") return renderBudget();
+  if (page === "home") return renderWelcome();
   if (page === "places") return renderPlaces();
   if (page === "itinerary") return renderItinerary();
   if (page === "compare") return renderCompare();
@@ -613,10 +612,6 @@ function sanitizeTripSlug(value) {
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
-}
-
-function welcomeStorageKey() {
-  return `trip-planner-welcome-v2-opened:${tripId}`;
 }
 
 function normalizeTrip(value, id) {

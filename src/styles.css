@@ -404,6 +404,37 @@ aside {
   z-index: 1;
 }
 
+.welcome-nav {
+  position: absolute;
+  top: clamp(16px, 3vw, 28px);
+  left: clamp(16px, 3vw, 32px);
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 3vw, 34px);
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  padding: 11px 22px;
+  box-shadow: 0 16px 36px rgba(17, 31, 66, 0.18);
+  backdrop-filter: blur(10px);
+  z-index: 2;
+}
+
+.welcome-nav a {
+  color: white;
+  font-size: clamp(0.95rem, 1.45vw, 1.2rem);
+  font-weight: 600;
+  text-shadow: 0 1px 10px rgba(18, 35, 74, 0.3);
+  white-space: nowrap;
+}
+
+.welcome-nav a.active {
+  color: #ff99aa;
+  font-size: 1.2rem;
+}
+
 .welcome-button {
   min-height: 50px;
   border-color: rgba(255, 255, 255, 0.72);
@@ -443,5 +474,12 @@ aside {
 
   .welcome-hero-image {
     object-fit: contain;
+  }
+
+  .welcome-nav {
+    left: 12px;
+    right: 12px;
+    justify-content: flex-start;
+    padding: 9px 14px;
   }
 }
