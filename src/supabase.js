@@ -1,7 +1,12 @@
 const configPath = "/api/config";
 
 export async function loadSupabaseConfig() {
-  const inline = window.TRIP_PLANNER_CONFIG || {};
+  const viteEnv = import.meta.env || {};
+  const inline = {
+    ...(window.TRIP_PLANNER_CONFIG || {}),
+    supabaseUrl: viteEnv.VITE_SUPABASE_URL || "",
+    supabaseAnonKey: viteEnv.VITE_SUPABASE_ANON_KEY || "",
+  };
 
   try {
     const response = await fetch(configPath, { headers: { accept: "application/json" } });

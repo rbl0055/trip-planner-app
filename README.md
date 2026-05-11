@@ -90,11 +90,11 @@ No build command is required for the current static version.
 
 Recommended Vercel project settings:
 
-- Framework Preset: `Other`
+- Framework Preset: `Vite`
 - Root Directory: project root
-- Build Command: leave empty
-- Output Directory: leave empty
-- Install Command: leave empty
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Install Command: `npm install`
 
 Before deploying, make sure Supabase has already run `supabase-schema.sql`.
 

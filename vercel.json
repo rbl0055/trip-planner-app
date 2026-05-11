@@ -1,5 +1,7 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/trip/:id", "destination": "/index.html" }
+    { "source": "/trip/:id*", "destination": "/index.html" }
   ]
 }

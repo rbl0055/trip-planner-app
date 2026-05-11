@@ -1,8 +1,9 @@
 import { categories, createSeedTrip, linkTypes, loadTrip, saveTrip, statuses } from "./data.js";
 import { isSupabaseConfigured, loadSupabaseConfig, loadTripFromSupabase, saveTripToSupabase } from "./supabase.js";
+import "./styles.css";
 
 const tripId = ensureTripId();
-let trip = loadTrip(tripId);
+let trip = normalizeTrip(loadTrip(tripId), tripId);
 let page = location.hash.replace("#", "") || "budget";
 let editing = null;
 let config = { supabaseUrl: "", supabaseAnonKey: "" };
@@ -42,6 +43,7 @@ function toNumber(value) {
 }
 
 function log(text) {
+  trip.activity = safeList(trip.activity);
   trip.activity.unshift({ id: crypto.randomUUID(), at: new Date().toISOString(), text });
 }
 
@@ -436,28 +438,28 @@ document.addEventListener("click", (event) => {
   if (action === "new-expense") editing = { type: "expense" };
   if (action === "edit-expense") editing = { type: "expense", id };
   if (action === "delete-expense") {
-    trip.expenses = trip.expenses.filter((item) => item.id !== id);
+    trip.expenses = safeList(trip.expenses).filter((item) => item.id !== id);
     return persist("Deleted an expense.");
   }
 
   if (action === "new-link") editing = { type: "link" };
   if (action === "edit-link") editing = { type: "link", id };
   if (action === "delete-link") {
-    trip.links = trip.links.filter((item) => item.id !== id);
+    trip.links = safeList(trip.links).filter((item) => item.id !== id);
     return persist("Deleted a saved place or link.");
   }
 
   if (action === "new-itinerary") editing = { type: "itinerary" };
   if (action === "edit-itinerary") editing = { type: "itinerary", id };
   if (action === "delete-itinerary") {
-    trip.itinerary = trip.itinerary.filter((item) => item.id !== id);
+    trip.itinerary = safeList(trip.itinerary).filter((item) => item.id !== id);
     return persist("Deleted an itinerary item.");
   }
 
   if (action === "new-plan") editing = { type: "plan" };
   if (action === "edit-plan") editing = { type: "plan", id };
   if (action === "delete-plan") {
-    trip.plans = trip.plans.filter((item) => item.id !== id);
+    trip.plans = safeList(trip.plans).filter((item) => item.id !== id);
     return persist("Deleted a comparison option.");
   }
 
@@ -483,24 +485,28 @@ document.addEventListener("submit", (event) => {
   }
 
   if (action === "save-expense") {
+    trip.expenses = safeList(trip.expenses);
     upsert(trip.expenses, { ...values, estimated: toNumber(values.estimated), actual: toNumber(values.actual) });
     editing = null;
     return persist("Saved an expense.");
   }
 
   if (action === "save-link") {
+    trip.links = safeList(trip.links);
     upsert(trip.links, values);
     editing = null;
     return persist("Saved a place or link.");
   }
 
   if (action === "save-itinerary") {
+    trip.itinerary = safeList(trip.itinerary);
     upsert(trip.itinerary, values);
     editing = null;
     return persist("Saved an itinerary item.");
   }
 
   if (action === "save-plan") {
+    trip.plans = safeList(trip.plans);
     upsert(trip.plans, { ...values, estimated: toNumber(values.estimated), rank: toNumber(values.rank) });
     editing = null;
     return persist("Saved a comparison option.");
@@ -537,7 +543,7 @@ async function initialize() {
   }
 
   try {
-    trip = await loadTripFromSupabase(config, tripId, createSeedTrip(tripId));
+    trip = normalizeTrip(await loadTripFromSupabase(config, tripId, createSeedTrip(tripId)), tripId);
     saveTrip(trip, tripId);
     onlineState.error = "";
     onlineState.message = "Loaded from Supabase.";
@@ -559,6 +565,29 @@ function ensureTripId() {
   localStorage.setItem("trip-planner-last-trip-id", id);
   history.replaceState(null, "", `/trip/${encodeURIComponent(id)}${location.hash || "#budget"}`);
   return id;
+}
+
+function normalizeTrip(value, id) {
+  const seed = createSeedTrip(id);
+  const incoming = value && typeof value === "object" ? value : {};
+  const meta = incoming.meta && typeof incoming.meta === "object" ? incoming.meta : {};
+
+  return {
+    ...seed,
+    ...incoming,
+    id,
+    meta: {
+      ...seed.meta,
+      ...meta,
+      budget: toNumber(meta.budget ?? seed.meta.budget),
+      currency: meta.currency || seed.meta.currency,
+    },
+    expenses: safeList(incoming.expenses),
+    links: safeList(incoming.links),
+    itinerary: safeList(incoming.itinerary),
+    plans: safeList(incoming.plans),
+    activity: safeList(incoming.activity),
+  };
 }
 
 function friendlySupabaseError(error) {
