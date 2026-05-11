@@ -11,6 +11,7 @@ const tripId = ensureTripId();
 let trip = normalizeTrip(loadTrip(tripId), tripId);
 let page = location.hash.replace("#", "") || "budget";
 let editing = null;
+let showWelcome = localStorage.getItem(welcomeStorageKey()) !== "opened";
 let config = { supabaseUrl: "", supabaseAnonKey: "" };
 let onlineState = {
   loading: true,
@@ -111,18 +112,38 @@ function shell(content) {
         <h1>${escapeHtml(trip.meta.tripName)}</h1>
         <p>${escapeHtml(trip.meta.travelers)}</p>
       </div>
-      <form class="budget-form" data-action="save-meta">
-        <label>
-          Trip budget
-          <input name="budget" type="number" min="0" step="1" value="${trip.meta.budget}" />
-        </label>
-        <button>Save</button>
-      </form>
+      <div class="header-actions">
+        <button class="ghost-button" data-action="view-welcome" type="button">View Welcome Page</button>
+        <form class="budget-form" data-action="save-meta">
+          <label>
+            Trip budget
+            <input name="budget" type="number" min="0" step="1" value="${trip.meta.budget}" />
+          </label>
+          <button>Save</button>
+        </form>
+      </div>
     </header>
     <nav class="tabs">
       ${nav.map(([id, label]) => `<a href="#${id}" class="${page === id ? "active" : ""}">${escapeHtml(label)}</a>`).join("")}
     </nav>
     <main>${content}</main>
+  `;
+}
+
+function renderWelcome() {
+  app.innerHTML = `
+    <main class="welcome-page">
+      <section class="welcome-card" aria-labelledby="welcome-title">
+        <div class="heart-frame">
+          <img src="https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=900&q=80" alt="Warm beach placeholder for our trip" />
+        </div>
+        <p class="welcome-kicker">Indonesia awaits</p>
+        <h1 id="welcome-title">Our Indonesia Trip</h1>
+        <p>A little space for our plans, places, food, and memories.</p>
+        <button class="welcome-button" data-action="open-trip" type="button">Open Our Trip</button>
+        <small>Made for us ❤️</small>
+      </section>
+    </main>
   `;
 }
 
@@ -435,6 +456,17 @@ document.addEventListener("click", (event) => {
   if (!target) return;
   const { action, id } = target.dataset;
 
+  if (action === "open-trip") {
+    localStorage.setItem(welcomeStorageKey(), "opened");
+    showWelcome = false;
+    return render();
+  }
+
+  if (action === "view-welcome") {
+    showWelcome = true;
+    return render();
+  }
+
   if (action === "new-expense") editing = { type: "expense" };
   if (action === "edit-expense") editing = { type: "expense", id };
   if (action === "delete-expense") {
@@ -520,6 +552,7 @@ window.addEventListener("hashchange", () => {
 });
 
 function render() {
+  if (showWelcome) return renderWelcome();
   if (page === "places") return renderPlaces();
   if (page === "itinerary") return renderItinerary();
   if (page === "compare") return renderCompare();
@@ -586,6 +619,10 @@ function sanitizeTripSlug(value) {
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
+}
+
+function welcomeStorageKey() {
+  return `trip-planner-welcome-opened:${tripId}`;
 }
 
 function normalizeTrip(value, id) {
