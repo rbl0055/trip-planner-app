@@ -1,6 +1,13 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/trip/trip-4b2347c8",
+      "destination": "/trip/indonesia-2026",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/trip/:id*", "destination": "/index.html" }
   ]

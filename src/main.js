@@ -2,6 +2,11 @@ import { categories, createSeedTrip, linkTypes, loadTrip, saveTrip, statuses } f
 import { isSupabaseConfigured, loadSupabaseConfig, loadTripFromSupabase, saveTripToSupabase } from "./supabase.js";
 import "./styles.css";
 
+const defaultTripSlug = "indonesia-2026";
+const tripAliases = {
+  "trip-4b2347c8": defaultTripSlug,
+};
+
 const tripId = ensureTripId();
 let trip = normalizeTrip(loadTrip(tripId), tripId);
 let page = location.hash.replace("#", "") || "budget";
@@ -558,13 +563,34 @@ async function initialize() {
 
 function ensureTripId() {
   const match = location.pathname.match(/^\/trip\/([^/?#]+)/);
-  if (match?.[1]) return decodeURIComponent(match[1]);
+  const requestedId = match?.[1] ? sanitizeTripSlug(decodeURIComponent(match[1])) : "";
+  const preservedHash = location.hash && location.hash !== "#budget" ? location.hash : "";
 
-  const existing = localStorage.getItem("trip-planner-last-trip-id");
-  const id = existing || `trip-${crypto.randomUUID().slice(0, 8)}`;
+  if (requestedId) {
+    const canonicalId = tripAliases[requestedId] || requestedId;
+    localStorage.setItem("trip-planner-last-trip-id", canonicalId);
+
+    if (canonicalId !== requestedId || location.hash === "#budget") {
+      history.replaceState(null, "", `/trip/${encodeURIComponent(canonicalId)}${preservedHash}`);
+    }
+
+    return canonicalId;
+  }
+
+  const existing = sanitizeTripSlug(localStorage.getItem("trip-planner-last-trip-id") || "");
+  const id = existing || defaultTripSlug;
   localStorage.setItem("trip-planner-last-trip-id", id);
-  history.replaceState(null, "", `/trip/${encodeURIComponent(id)}${location.hash || "#budget"}`);
+  history.replaceState(null, "", `/trip/${encodeURIComponent(id)}${preservedHash}`);
   return id;
+}
+
+function sanitizeTripSlug(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }
 
 function normalizeTrip(value, id) {
