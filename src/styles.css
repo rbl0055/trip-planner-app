@@ -346,6 +346,114 @@ aside {
   padding: 16px;
 }
 
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calendar-weekdays {
+  margin: 8px 0 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-day {
+  min-height: 190px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 12px;
+  text-align: left;
+}
+
+.calendar-day.empty {
+  border-style: dashed;
+  background: transparent;
+}
+
+.calendar-day.has-plan {
+  cursor: pointer;
+}
+
+.calendar-day.has-plan:hover,
+.calendar-day.has-plan:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.calendar-date,
+.calendar-cost {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.calendar-date strong {
+  font-size: 1.35rem;
+}
+
+.calendar-day h3 {
+  margin: 8px 0;
+  font-size: 1rem;
+}
+
+.calendar-day p {
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.calendar-day p b {
+  display: block;
+  color: var(--ink);
+  font-size: 0.76rem;
+}
+
+.calendar-cost {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.calendar-cost span {
+  color: var(--accent-dark);
+  font-weight: 800;
+}
+
+.add-day {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--accent-dark);
+}
+
+.add-day span {
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.check-row {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+}
+
+.check-row input {
+  width: auto;
+  min-height: auto;
+}
+
 .modal {
   position: fixed;
   inset: 0;
@@ -444,6 +552,18 @@ aside {
 
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .calendar-weekdays {
+    display: none;
+  }
+
+  .calendar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-day.empty {
+    display: none;
   }
 
   .welcome-hero-image {

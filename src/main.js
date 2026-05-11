@@ -76,8 +76,12 @@ async function persist(text) {
 
 function totals() {
   const expenses = safeList(trip.expenses);
-  const estimated = expenses.reduce((sum, item) => sum + toNumber(item.estimated), 0);
+  const itinerary = safeList(trip.itinerary).map(normalizeItineraryItem);
+  const expenseEstimated = expenses.reduce((sum, item) => sum + toNumber(item.estimated), 0);
   const actual = expenses.reduce((sum, item) => sum + toNumber(item.actual), 0);
+  const itineraryEstimated = itinerary.reduce((sum, item) => item.includeInTotal ? sum + toNumber(item.estimatedCost) : sum, 0);
+  const combinedEstimated = expenseEstimated + itineraryEstimated;
+  const totalBudget = toNumber(trip.meta.budget);
   const categoryTotals = categories.map((category) => {
     const items = expenses.filter((expense) => expense.category === category);
     return {
@@ -87,7 +91,15 @@ function totals() {
     };
   });
 
-  return { estimated, actual, remaining: toNumber(trip.meta.budget) - actual, categoryTotals };
+  return {
+    totalBudget,
+    expenseEstimated,
+    actual,
+    itineraryEstimated,
+    combinedEstimated,
+    remaining: totalBudget - combinedEstimated,
+    categoryTotals,
+  };
 }
 
 function optionList(values, selected) {
@@ -172,9 +184,12 @@ function renderBudget() {
   const expenses = safeList(trip.expenses);
   shell(`
     <section class="summary-grid">
-      <article><span>Total estimated</span><strong>${money(summary.estimated)}</strong></article>
-      <article><span>Total actual</span><strong>${money(summary.actual)}</strong></article>
+      <article><span>Total budget</span><strong>${money(summary.totalBudget)}</strong></article>
+      <article><span>Expense tracker total</span><strong>${money(summary.expenseEstimated)}</strong></article>
+      <article><span>Itinerary planned cost</span><strong>${money(summary.itineraryEstimated)}</strong></article>
+      <article><span>Combined estimated total</span><strong>${money(summary.combinedEstimated)}</strong></article>
       <article><span>Remaining budget</span><strong class="${summary.remaining < 0 ? "danger" : ""}">${money(summary.remaining)}</strong></article>
+      <article><span>Total actual so far</span><strong>${money(summary.actual)}</strong></article>
     </section>
 
     <section class="workbench">
@@ -309,25 +324,41 @@ function linkDialog() {
 }
 
 function renderItinerary() {
-  const days = safeList(trip.itinerary).sort((a, b) => `${a.date || ""} ${a.time || ""}`.localeCompare(`${b.date || ""} ${b.time || ""}`));
+  const days = safeList(trip.itinerary).map(normalizeItineraryItem).sort((a, b) => `${a.date || ""}`.localeCompare(`${b.date || ""}`));
+  const calendar = buildCalendar(days);
   shell(`
     <section>
       <div class="section-title">
-        <h2>Itinerary by date</h2>
-        <button data-action="new-itinerary">Add item</button>
+        <h2>${escapeHtml(calendar.monthLabel)} Itinerary</h2>
+        <button data-action="new-itinerary">Add plan</button>
       </div>
-      <div class="timeline">
-        ${days.map((item) => `
-          <article class="timeline-item">
-            <time>${escapeHtml(item.date)} ${escapeHtml(item.time)}</time>
-            <h3>${escapeHtml(item.title)}</h3>
-            <p>${escapeHtml(item.location)}</p>
-            <p>${escapeHtml(item.notes || "")}</p>
-            <div class="row-actions">
-              <button data-action="edit-itinerary" data-id="${item.id}">Edit</button>
-              <button data-action="delete-itinerary" data-id="${item.id}">Delete</button>
+      <div class="calendar-weekdays">
+        ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `<span>${day}</span>`).join("")}
+      </div>
+      <div class="calendar-grid">
+        ${calendar.cells.map((cell) => cell.empty ? `
+          <div class="calendar-day empty"></div>
+        ` : cell.item ? `
+          <article class="calendar-day has-plan" data-action="edit-itinerary" data-id="${cell.item.id}" tabindex="0">
+            <div class="calendar-date">
+              <strong>${cell.day}</strong>
+              <span>${escapeHtml(cell.weekday)}</span>
             </div>
+            <h3>${escapeHtml(cell.item.location || "TBD")}</h3>
+            <p><b>Morning</b>${escapeHtml(cell.item.morning || "TBD")}</p>
+            <p><b>Afternoon</b>${escapeHtml(cell.item.afternoon || "TBD")}</p>
+            <p><b>Night</b>${escapeHtml(cell.item.night || "TBD")}</p>
+            <div class="calendar-cost">
+              <span>${money(cell.item.estimatedCost)}</span>
+              <small>${cell.item.includeInTotal ? "Included in total" : "Itinerary only"}</small>
+            </div>
+            ${cell.item.notes ? `<small>${escapeHtml(cell.item.notes)}</small>` : ""}
           </article>
+        ` : `
+          <button class="calendar-day add-day" data-action="new-itinerary" data-date="${cell.date}" type="button">
+            <span>${cell.day}</span>
+            <small>Add plan</small>
+          </button>
         `).join("")}
       </div>
     </section>
@@ -337,23 +368,30 @@ function renderItinerary() {
 
 function itineraryDialog() {
   if (editing?.type !== "itinerary") return "";
-  const item = editing.id ? trip.itinerary.find((entry) => entry.id === editing.id) : {};
+  const item = normalizeItineraryItem(editing.id ? trip.itinerary.find((entry) => entry.id === editing.id) : { date: editing.date });
   return `
     <div class="modal">
       <form class="panel" data-action="save-itinerary">
         <div class="section-title">
-          <h2>${item?.id ? "Edit itinerary" : "Add itinerary"}</h2>
+          <h2>${item?.id ? "Edit itinerary day" : "Add itinerary day"}</h2>
           <button type="button" data-action="close-dialog">Close</button>
         </div>
         <input type="hidden" name="id" value="${escapeHtml(item?.id || "")}" />
-        <div class="split">
-          <label>Date<input name="date" type="date" required value="${escapeHtml(item?.date || "")}" /></label>
-          <label>Time<input name="time" type="time" value="${escapeHtml(item?.time || "")}" /></label>
-        </div>
-        <label>Title<input name="title" required value="${escapeHtml(item?.title || "")}" /></label>
-        <label>Location<input name="location" value="${escapeHtml(item?.location || "")}" /></label>
+        <label>Date<input name="date" type="date" required value="${escapeHtml(item?.date || "")}" /></label>
+        <label>City / location<input name="location" value="${escapeHtml(item?.location || "")}" /></label>
+        <label>Morning plan<textarea name="morning">${escapeHtml(item?.morning || "")}</textarea></label>
+        <label>Afternoon plan<textarea name="afternoon">${escapeHtml(item?.afternoon || "")}</textarea></label>
+        <label>Night plan<textarea name="night">${escapeHtml(item?.night || "")}</textarea></label>
+        <label>Estimated daily cost<input name="estimatedCost" type="number" min="0" step="0.01" value="${item?.estimatedCost || ""}" /></label>
+        <label class="check-row">
+          <input name="includeInTotal" type="checkbox" value="yes" ${item?.includeInTotal !== false ? "checked" : ""} />
+          Include this cost in trip total
+        </label>
         <label>Notes<textarea name="notes">${escapeHtml(item?.notes || "")}</textarea></label>
-        <button>Save itinerary item</button>
+        <div class="row-actions">
+          <button>Save itinerary day</button>
+          ${item?.id ? `<button type="button" data-action="delete-itinerary" data-id="${item.id}">Delete</button>` : ""}
+        </div>
       </form>
     </div>
   `;
@@ -445,10 +483,88 @@ function safeList(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
+function normalizeItineraryItem(item = {}) {
+  const legacyNotes = parseItineraryNotes(item.notes);
+  const merged = { ...legacyNotes, ...item };
+  const morning = merged.morning || merged.title || "";
+  const notes = isStructuredItineraryNotes(item.notes) ? (legacyNotes.notesText || "") : (merged.notesText || merged.notes || "");
+
+  return {
+    ...merged,
+    id: merged.id || "",
+    date: merged.date || "",
+    time: merged.time || "",
+    title: merged.title || morning || "Daily plan",
+    location: merged.location || "",
+    morning,
+    afternoon: merged.afternoon || "",
+    night: merged.night || "",
+    estimatedCost: toNumber(merged.estimatedCost),
+    includeInTotal: merged.includeInTotal !== false,
+    notes,
+  };
+}
+
+function parseItineraryNotes(value) {
+  if (!value || typeof value !== "string") return {};
+
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed?.version === 2) {
+      return {
+        morning: parsed.morning || "",
+        afternoon: parsed.afternoon || "",
+        night: parsed.night || "",
+        estimatedCost: toNumber(parsed.estimatedCost),
+        includeInTotal: parsed.includeInTotal !== false,
+        notesText: parsed.notes || "",
+      };
+    }
+  } catch {
+    // Plain legacy notes.
+  }
+
+  return { notesText: value };
+}
+
+function isStructuredItineraryNotes(value) {
+  try {
+    return JSON.parse(value)?.version === 2;
+  } catch {
+    return false;
+  }
+}
+
+function buildCalendar(items) {
+  const datedItems = items.filter((item) => item.date);
+  const baseDate = datedItems[0]?.date ? new Date(`${datedItems[0].date}T00:00:00`) : new Date();
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const byDate = new Map(datedItems.map((item) => [item.date, item]));
+  const cells = [];
+
+  for (let index = 0; index < firstDay.getDay(); index += 1) {
+    cells.push({ empty: true });
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" });
+    cells.push({ date, day, weekday, item: byDate.get(date) });
+  }
+
+  return {
+    monthLabel: firstDay.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+    cells,
+  };
+}
+
 document.addEventListener("click", (event) => {
-  const target = event.target.closest("button[data-action], a[data-action]");
+  const target = event.target.closest("button[data-action], a[data-action], .calendar-day[data-action]");
   if (!target) return;
-  const { action, id } = target.dataset;
+  const { action, id, date } = target.dataset;
 
   if (action === "new-expense") editing = { type: "expense" };
   if (action === "edit-expense") editing = { type: "expense", id };
@@ -464,7 +580,7 @@ document.addEventListener("click", (event) => {
     return persist("Deleted a saved place or link.");
   }
 
-  if (action === "new-itinerary") editing = { type: "itinerary" };
+  if (action === "new-itinerary") editing = { type: "itinerary", date };
   if (action === "edit-itinerary") editing = { type: "itinerary", id };
   if (action === "delete-itinerary") {
     trip.itinerary = safeList(trip.itinerary).filter((item) => item.id !== id);
@@ -515,7 +631,13 @@ document.addEventListener("submit", (event) => {
 
   if (action === "save-itinerary") {
     trip.itinerary = safeList(trip.itinerary);
-    upsert(trip.itinerary, values);
+    upsert(trip.itinerary, normalizeItineraryItem({
+      ...values,
+      title: values.morning || "Daily plan",
+      time: "",
+      estimatedCost: toNumber(values.estimatedCost),
+      includeInTotal: values.includeInTotal === "yes",
+    }));
     editing = null;
     return persist("Saved an itinerary item.");
   }
@@ -624,7 +746,7 @@ function normalizeTrip(value, id) {
     },
     expenses: safeList(incoming.expenses),
     links: safeList(incoming.links),
-    itinerary: safeList(incoming.itinerary),
+    itinerary: safeList(incoming.itinerary).map(normalizeItineraryItem),
     plans: safeList(incoming.plans),
     activity: safeList(incoming.activity),
   };

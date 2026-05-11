@@ -72,14 +72,7 @@ export async function loadTripFromSupabase(config, tripId, seedTrip) {
       url: row.url || "",
       notes: row.notes || "",
     })),
-    itinerary: safeRows(itinerary).map((row) => ({
-      id: row.id || crypto.randomUUID(),
-      date: row.trip_date || "",
-      time: row.start_time || "",
-      title: row.title || "Untitled itinerary item",
-      location: row.location || "",
-      notes: row.notes || "",
-    })),
+    itinerary: safeRows(itinerary).map((row) => itineraryFromRow(row)),
     plans: safeRows(plans).map((row) => ({
       id: row.id || crypto.randomUUID(),
       name: row.name || "Untitled option",
@@ -142,9 +135,9 @@ export async function saveTripToSupabase(config, trip) {
       trip_id: tripId,
       trip_date: item.date || null,
       start_time: item.time || null,
-      title: item.title,
+      title: item.title || item.morning || "Daily plan",
       location: item.location,
-      notes: item.notes,
+      notes: itineraryNotesForStorage(item),
     }))),
     replaceRows(client, "plan_options", tripId, trip.plans.map((item) => ({
       id: item.id,
@@ -214,4 +207,46 @@ async function replaceRows(client, table, tripId, rows) {
 
 function safeRows(rows) {
   return Array.isArray(rows) ? rows.filter(Boolean) : [];
+}
+
+function itineraryFromRow(row) {
+  const details = parseItineraryNotes(row.notes);
+  return {
+    id: row.id || crypto.randomUUID(),
+    date: row.trip_date || "",
+    time: row.start_time || "",
+    title: row.title || details.morning || "Untitled itinerary item",
+    location: row.location || details.location || "",
+    morning: details.morning || row.title || "",
+    afternoon: details.afternoon || "",
+    night: details.night || "",
+    estimatedCost: Number(details.estimatedCost || 0),
+    includeInTotal: details.includeInTotal !== false,
+    notes: details.notes || "",
+  };
+}
+
+function parseItineraryNotes(value) {
+  if (!value) return {};
+
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && parsed.version === 2) return parsed;
+  } catch {
+    // Older rows stored plain notes.
+  }
+
+  return { notes: value };
+}
+
+function itineraryNotesForStorage(item) {
+  return JSON.stringify({
+    version: 2,
+    morning: item.morning || "",
+    afternoon: item.afternoon || "",
+    night: item.night || "",
+    estimatedCost: Number(item.estimatedCost || 0),
+    includeInTotal: item.includeInTotal !== false,
+    notes: item.notes || "",
+  });
 }
