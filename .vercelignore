@@ -4,3 +4,4 @@ server.mjs
 .cache
 .npm-cache
 dist
+dist-check

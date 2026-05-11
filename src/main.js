@@ -9,7 +9,7 @@ const tripAliases = {
 
 const tripId = ensureTripId();
 let trip = normalizeTrip(loadTrip(tripId), tripId);
-let page = location.hash.replace("#", "") || "home";
+let page = currentPage();
 let editing = null;
 let config = { supabaseUrl: "", supabaseAnonKey: "" };
 let onlineState = {
@@ -132,15 +132,11 @@ function renderWelcome() {
     <main class="welcome-page">
       <img class="welcome-hero-image" src="/welcome-hero.png" alt="Our Indonesia Trip welcome artwork" />
       <nav class="welcome-nav" aria-label="Trip sections">
-        <a class="active" href="#home">♥</a>
-        <a href="#home">Home</a>
+        <a class="active" href="#home">Home</a>
         <a href="#itinerary">Itinerary</a>
         <a href="#budget">Budget</a>
         <a href="#places">Places</a>
       </nav>
-      <div class="welcome-overlay">
-        <button class="welcome-button" data-action="open-trip" type="button">Open Planner</button>
-      </div>
     </main>
   `;
 }
@@ -454,12 +450,6 @@ document.addEventListener("click", (event) => {
   if (!target) return;
   const { action, id } = target.dataset;
 
-  if (action === "open-trip") {
-    page = "budget";
-    history.replaceState(null, "", `${location.pathname}#budget`);
-    return render();
-  }
-
   if (action === "new-expense") editing = { type: "expense" };
   if (action === "edit-expense") editing = { type: "expense", id };
   if (action === "delete-expense") {
@@ -539,7 +529,7 @@ document.addEventListener("submit", (event) => {
 });
 
 window.addEventListener("hashchange", () => {
-  page = location.hash.replace("#", "") || "home";
+  page = currentPage();
   editing = null;
   render();
 });
@@ -548,8 +538,6 @@ function render() {
   if (page === "home") return renderWelcome();
   if (page === "places") return renderPlaces();
   if (page === "itinerary") return renderItinerary();
-  if (page === "compare") return renderCompare();
-  if (page === "activity") return renderActivity();
   return renderBudget();
 }
 
@@ -612,6 +600,11 @@ function sanitizeTripSlug(value) {
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
+}
+
+function currentPage() {
+  const requested = location.hash.replace("#", "") || "home";
+  return ["home", "itinerary", "budget", "places"].includes(requested) ? requested : "budget";
 }
 
 function normalizeTrip(value, id) {
