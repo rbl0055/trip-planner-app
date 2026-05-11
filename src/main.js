@@ -9,7 +9,7 @@ const tripAliases = {
 
 const tripId = ensureTripId();
 let trip = normalizeTrip(loadTrip(tripId), tripId);
-let page = location.hash.replace("#", "") || "budget";
+let page = location.hash.replace("#", "") || "home";
 let editing = null;
 let showWelcome = localStorage.getItem(welcomeStorageKey()) !== "opened";
 let config = { supabaseUrl: "", supabaseAnonKey: "" };
@@ -97,11 +97,10 @@ function optionList(values, selected) {
 
 function shell(content) {
   const nav = [
+    ["home", "Home"],
+    ["itinerary", "Itinerary"],
     ["budget", "Budget"],
     ["places", "Places"],
-    ["itinerary", "Itinerary"],
-    ["compare", "Compare"],
-    ["activity", "Activity"],
   ];
 
   app.innerHTML = `
@@ -113,7 +112,7 @@ function shell(content) {
         <p>${escapeHtml(trip.meta.travelers)}</p>
       </div>
       <div class="header-actions">
-        <button class="ghost-button" data-action="view-welcome" type="button">View Welcome Page</button>
+        <button class="ghost-button" data-action="view-welcome" type="button">Welcome</button>
         <form class="budget-form" data-action="save-meta">
           <label>
             Trip budget
@@ -133,16 +132,10 @@ function shell(content) {
 function renderWelcome() {
   app.innerHTML = `
     <main class="welcome-page">
-      <section class="welcome-card" aria-labelledby="welcome-title">
-        <div class="heart-frame">
-          <img src="https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=900&q=80" alt="Warm beach placeholder for our trip" />
-        </div>
-        <p class="welcome-kicker">Indonesia awaits</p>
-        <h1 id="welcome-title">Our Indonesia Trip</h1>
-        <p>A little space for our plans, places, food, and memories.</p>
-        <button class="welcome-button" data-action="open-trip" type="button">Open Our Trip</button>
-        <small>Made for us ❤️</small>
-      </section>
+      <img class="welcome-hero-image" src="/welcome-hero.png" alt="Our Indonesia Trip welcome artwork" />
+      <div class="welcome-overlay">
+        <button class="welcome-button" data-action="open-trip" type="button">Open Planner</button>
+      </div>
     </main>
   `;
 }
@@ -546,13 +539,14 @@ document.addEventListener("submit", (event) => {
 });
 
 window.addEventListener("hashchange", () => {
-  page = location.hash.replace("#", "") || "budget";
+  page = location.hash.replace("#", "") || "home";
   editing = null;
   render();
 });
 
 function render() {
   if (showWelcome) return renderWelcome();
+  if (page === "home") return renderBudget();
   if (page === "places") return renderPlaces();
   if (page === "itinerary") return renderItinerary();
   if (page === "compare") return renderCompare();
@@ -622,7 +616,7 @@ function sanitizeTripSlug(value) {
 }
 
 function welcomeStorageKey() {
-  return `trip-planner-welcome-opened:${tripId}`;
+  return `trip-planner-welcome-v2-opened:${tripId}`;
 }
 
 function normalizeTrip(value, id) {
