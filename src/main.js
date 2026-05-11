@@ -325,40 +325,47 @@ function linkDialog() {
 
 function renderItinerary() {
   const days = safeList(trip.itinerary).map(normalizeItineraryItem).sort((a, b) => `${a.date || ""}`.localeCompare(`${b.date || ""}`));
-  const calendar = buildCalendar(days);
+  const calendars = buildCalendars(days);
   shell(`
     <section>
       <div class="section-title">
-        <h2>${escapeHtml(calendar.monthLabel)} Itinerary</h2>
+        <h2>Trip Itinerary</h2>
         <button data-action="new-itinerary">Add plan</button>
       </div>
-      <div class="calendar-weekdays">
-        ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `<span>${day}</span>`).join("")}
-      </div>
-      <div class="calendar-grid">
-        ${calendar.cells.map((cell) => cell.empty ? `
-          <div class="calendar-day empty"></div>
-        ` : cell.item ? `
-          <article class="calendar-day has-plan" data-action="edit-itinerary" data-id="${cell.item.id}" tabindex="0">
-            <div class="calendar-date">
-              <strong>${cell.day}</strong>
-              <span>${escapeHtml(cell.weekday)}</span>
+      <div class="calendar-stack">
+        ${calendars.map((calendar) => `
+          <section class="calendar-month">
+            <h3>${escapeHtml(calendar.monthLabel)}</h3>
+            <div class="calendar-weekdays">
+              ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `<span>${day}</span>`).join("")}
             </div>
-            <h3>${escapeHtml(cell.item.location || "TBD")}</h3>
-            <p><b>Morning</b>${escapeHtml(cell.item.morning || "TBD")}</p>
-            <p><b>Afternoon</b>${escapeHtml(cell.item.afternoon || "TBD")}</p>
-            <p><b>Night</b>${escapeHtml(cell.item.night || "TBD")}</p>
-            <div class="calendar-cost">
-              <span>${money(cell.item.estimatedCost)}</span>
-              <small>${cell.item.includeInTotal ? "Included in total" : "Itinerary only"}</small>
+            <div class="calendar-grid">
+              ${calendar.cells.map((cell) => cell.empty ? `
+                <div class="calendar-day empty"></div>
+              ` : cell.item ? `
+                <article class="calendar-day has-plan" data-action="edit-itinerary" data-id="${cell.item.id}" tabindex="0">
+                  <div class="calendar-date">
+                    <strong>${cell.day}</strong>
+                    <span>${escapeHtml(cell.weekday)}</span>
+                  </div>
+                  <h3>${escapeHtml(cell.item.location || "TBD")}</h3>
+                  <p><b>Morning</b>${escapeHtml(cell.item.morning || "TBD")}</p>
+                  <p><b>Afternoon</b>${escapeHtml(cell.item.afternoon || "TBD")}</p>
+                  <p><b>Night</b>${escapeHtml(cell.item.night || "TBD")}</p>
+                  <div class="calendar-cost">
+                    <span>${money(cell.item.estimatedCost)}</span>
+                    <small>${cell.item.includeInTotal ? "Included in total" : "Itinerary only"}</small>
+                  </div>
+                  ${cell.item.notes ? `<small>${escapeHtml(cell.item.notes)}</small>` : ""}
+                </article>
+              ` : `
+                <button class="calendar-day add-day" data-action="new-itinerary" data-date="${cell.date}" type="button">
+                  <span>${cell.day}</span>
+                  <small>Add plan</small>
+                </button>
+              `).join("")}
             </div>
-            ${cell.item.notes ? `<small>${escapeHtml(cell.item.notes)}</small>` : ""}
-          </article>
-        ` : `
-          <button class="calendar-day add-day" data-action="new-itinerary" data-date="${cell.date}" type="button">
-            <span>${cell.day}</span>
-            <small>Add plan</small>
-          </button>
+          </section>
         `).join("")}
       </div>
     </section>
@@ -535,14 +542,41 @@ function isStructuredItineraryNotes(value) {
   }
 }
 
-function buildCalendar(items) {
-  const datedItems = items.filter((item) => item.date);
-  const baseDate = datedItems[0]?.date ? new Date(`${datedItems[0].date}T00:00:00`) : new Date();
-  const year = baseDate.getFullYear();
-  const month = baseDate.getMonth();
+function buildCalendars(items) {
+  const months = tripMonths();
+  return months.map(({ year, month }) => buildCalendarMonth(items, year, month));
+}
+
+function tripMonths() {
+  const start = parseDateInput(trip.meta.startDate);
+  const end = parseDateInput(trip.meta.endDate);
+
+  if (start && end && start <= end) {
+    const months = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    const last = new Date(end.getFullYear(), end.getMonth(), 1);
+
+    while (cursor <= last) {
+      months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    return months;
+  }
+
+  return [5, 6, 7].map((month) => ({ year: 2026, month }));
+}
+
+function parseDateInput(value) {
+  if (!value || typeof value !== "string") return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildCalendarMonth(items, year, month) {
   const firstDay = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const byDate = new Map(datedItems.map((item) => [item.date, item]));
+  const byDate = new Map(items.filter((item) => item.date).map((item) => [item.date, item]));
   const cells = [];
 
   for (let index = 0; index < firstDay.getDay(); index += 1) {

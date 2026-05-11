@@ -346,6 +346,15 @@ aside {
   padding: 16px;
 }
 
+.calendar-stack {
+  display: grid;
+  gap: 30px;
+}
+
+.calendar-month h3 {
+  margin: 4px 0 12px;
+}
+
 .calendar-weekdays,
 .calendar-grid {
   display: grid;
