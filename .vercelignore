@@ -1,3 +1,5 @@
 .env
 .vercel
 server.mjs
+.cache
+.npm-cache

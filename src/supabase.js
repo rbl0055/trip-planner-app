@@ -42,51 +42,52 @@ export async function loadTripFromSupabase(config, tripId, seedTrip) {
   return {
     id: tripId,
     meta: {
-      tripName: tripRow.trip_name,
-      travelers: tripRow.travelers,
+      ...seedTrip.meta,
+      tripName: tripRow.trip_name || seedTrip.meta.tripName,
+      travelers: tripRow.travelers || seedTrip.meta.travelers,
       budget: Number(tripRow.budget || 0),
       currency: tripRow.currency || "USD",
       shareNote: tripRow.share_note || "",
     },
-    expenses: expenses.map((row) => ({
-      id: row.id,
-      name: row.name,
-      category: row.category,
+    expenses: safeRows(expenses).map((row) => ({
+      id: row.id || crypto.randomUUID(),
+      name: row.name || "Untitled expense",
+      category: row.category || "miscellaneous",
       estimated: Number(row.estimated || 0),
       actual: Number(row.actual || 0),
       notes: row.notes || "",
       link: row.link || "",
       status: row.status || "planned",
     })),
-    links: links.map((row) => ({
-      id: row.id,
-      title: row.title,
-      type: row.type,
+    links: safeRows(links).map((row) => ({
+      id: row.id || crypto.randomUUID(),
+      title: row.title || "Untitled link",
+      type: row.type || "other",
       destination: row.destination || "",
       url: row.url || "",
       notes: row.notes || "",
     })),
-    itinerary: itinerary.map((row) => ({
-      id: row.id,
+    itinerary: safeRows(itinerary).map((row) => ({
+      id: row.id || crypto.randomUUID(),
       date: row.trip_date || "",
       time: row.start_time || "",
-      title: row.title,
+      title: row.title || "Untitled itinerary item",
       location: row.location || "",
       notes: row.notes || "",
     })),
-    plans: plans.map((row) => ({
-      id: row.id,
-      name: row.name,
+    plans: safeRows(plans).map((row) => ({
+      id: row.id || crypto.randomUUID(),
+      name: row.name || "Untitled option",
       estimated: Number(row.estimated || 0),
       pros: row.pros || "",
       cons: row.cons || "",
       notes: row.notes || "",
       rank: Number(row.rank || 1),
     })),
-    activity: activity.map((row) => ({
-      id: row.id,
-      at: row.happened_at || row.created_at,
-      text: row.text,
+    activity: safeRows(activity).map((row) => ({
+      id: row.id || crypto.randomUUID(),
+      at: row.happened_at || row.created_at || new Date().toISOString(),
+      text: row.text || "Updated the trip.",
     })),
   };
 }
@@ -204,4 +205,8 @@ async function replaceRows(client, table, tripId, rows) {
       body: rows,
     });
   }
+}
+
+function safeRows(rows) {
+  return Array.isArray(rows) ? rows.filter(Boolean) : [];
 }

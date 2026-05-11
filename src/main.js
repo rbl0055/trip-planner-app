@@ -68,10 +68,11 @@ async function persist(text) {
 }
 
 function totals() {
-  const estimated = trip.expenses.reduce((sum, item) => sum + toNumber(item.estimated), 0);
-  const actual = trip.expenses.reduce((sum, item) => sum + toNumber(item.actual), 0);
+  const expenses = safeList(trip.expenses);
+  const estimated = expenses.reduce((sum, item) => sum + toNumber(item.estimated), 0);
+  const actual = expenses.reduce((sum, item) => sum + toNumber(item.actual), 0);
   const categoryTotals = categories.map((category) => {
-    const items = trip.expenses.filter((expense) => expense.category === category);
+    const items = expenses.filter((expense) => expense.category === category);
     return {
       category,
       estimated: items.reduce((sum, item) => sum + toNumber(item.estimated), 0),
@@ -151,6 +152,7 @@ function statusBanner() {
 
 function renderBudget() {
   const summary = totals();
+  const expenses = safeList(trip.expenses);
   shell(`
     <section class="summary-grid">
       <article><span>Total estimated</span><strong>${money(summary.estimated)}</strong></article>
@@ -172,7 +174,7 @@ function renderBudget() {
               </tr>
             </thead>
             <tbody>
-              ${trip.expenses.map((expense) => `
+              ${expenses.map((expense) => `
                 <tr>
                   <td>
                     <strong>${escapeHtml(expense.name)}</strong>
@@ -234,6 +236,7 @@ function expenseDialog() {
 }
 
 function renderPlaces() {
+  const links = safeList(trip.links);
   shell(`
     <section class="workbench">
       <div>
@@ -242,7 +245,7 @@ function renderPlaces() {
           <button data-action="new-link">Add link</button>
         </div>
         <div class="cards">
-          ${trip.links.map((item) => `
+          ${links.map((item) => `
             <article class="card">
               <span class="pill">${escapeHtml(item.type)}</span>
               <h3>${escapeHtml(item.title)}</h3>
@@ -259,7 +262,7 @@ function renderPlaces() {
       </div>
       <aside>
         <h2>Quick buckets</h2>
-        ${linkTypes.map((type) => `<div class="category-row"><span>${escapeHtml(type)}</span><strong>${trip.links.filter((item) => item.type === type).length}</strong></div>`).join("")}
+        ${linkTypes.map((type) => `<div class="category-row"><span>${escapeHtml(type)}</span><strong>${links.filter((item) => item.type === type).length}</strong></div>`).join("")}
       </aside>
     </section>
     ${linkDialog()}
@@ -289,7 +292,7 @@ function linkDialog() {
 }
 
 function renderItinerary() {
-  const days = [...trip.itinerary].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  const days = safeList(trip.itinerary).sort((a, b) => `${a.date || ""} ${a.time || ""}`.localeCompare(`${b.date || ""} ${b.time || ""}`));
   shell(`
     <section>
       <div class="section-title">
@@ -340,6 +343,7 @@ function itineraryDialog() {
 }
 
 function renderCompare() {
+  const plans = safeList(trip.plans).sort((a, b) => toNumber(a.rank) - toNumber(b.rank));
   shell(`
     <section>
       <div class="section-title">
@@ -347,7 +351,7 @@ function renderCompare() {
         <button data-action="new-plan">Add option</button>
       </div>
       <div class="plan-grid">
-        ${trip.plans.sort((a, b) => a.rank - b.rank).map((plan) => `
+        ${plans.map((plan) => `
           <article class="card">
             <span class="pill">Rank ${plan.rank}</span>
             <h3>${escapeHtml(plan.name)}</h3>
@@ -393,13 +397,14 @@ function planDialog() {
 }
 
 function renderActivity() {
+  const activity = safeList(trip.activity);
   shell(`
     <section class="activity">
       <div class="section-title">
         <h2>Activity log</h2>
         <button data-action="clear-activity">Clear log</button>
       </div>
-      ${trip.activity.map((item) => `
+      ${activity.map((item) => `
         <article class="log-entry">
           <time>${new Date(item.at).toLocaleString()}</time>
           <p>${escapeHtml(item.text)}</p>
@@ -417,6 +422,10 @@ function upsert(collection, item) {
   const index = collection.findIndex((entry) => entry.id === item.id);
   if (index >= 0) collection[index] = item;
   else collection.unshift({ ...item, id: crypto.randomUUID() });
+}
+
+function safeList(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
 document.addEventListener("click", (event) => {
@@ -561,7 +570,7 @@ function friendlySupabaseError(error) {
     return "Check the anon row-level security policies in supabase-schema.sql.";
   }
   if (message.includes("Failed to fetch")) {
-    return "Check the Supabase URL, anon key, and allowed project status.";
+    return "The browser could not reach Supabase. Restart the local server, refresh the page, and check whether a browser blocker is blocking supabase.co.";
   }
   return message.slice(0, 180) || "Unknown Supabase error.";
 }
