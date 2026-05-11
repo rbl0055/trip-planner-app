@@ -431,7 +431,7 @@ function safeList(value) {
 }
 
 document.addEventListener("click", (event) => {
-  const target = event.target.closest("[data-action]");
+  const target = event.target.closest("button[data-action], a[data-action]");
   if (!target) return;
   const { action, id } = target.dataset;
 
